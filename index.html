@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fiole de Versets — Mood → Verset</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Amiri&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #f7f8fc;
+      --card: #ffffff;
+      --text: #2b2d42;
+      --muted: #6b6f86;
+      --shadow: 0 12px 30px rgba(0,0,0,0.08);
+      --glass: rgba(255,255,255,0.6);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background: linear-gradient(145deg,var(--bg),#eef2ff);
+      font-family: 'Nunito', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:var(--text);
+    }
+
+    .app{
+      width:100%;
+      max-width:920px;
+      background:var(--card);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      border:1px solid #edf2ff;
+    }
+
+    header{
+      padding:28px 28px 10px;
+      text-align:center;
+      background:
+        radial-gradient(1100px 500px at 10% -10%, #98b7ff 0%, transparent 60%),
+        radial-gradient(1100px 500px at 90% -10%, #ffd6e7 0%, transparent 60%);
+    }
+    header h1{ margin:0; font-size:28px; font-weight:800; }
+    header p{ margin:8px 0 18px; color:var(--muted); }
+
+    .controls{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:0 24px 18px;
+      justify-content:center;
+      align-items:center;
+    }
+    .input, select{
+      background:#f7f9ff;
+      border:1px solid #e6ebff;
+      border-radius:14px;
+      padding:12px 14px;
+      font-size:15px;
+      color:var(--text);
+      outline:none;
+    }
+    .input{ flex:1 1 260px; min-width:200px; }
+    select{ flex:0 1 220px; }
+
+    .btn{
+      background:linear-gradient(180deg,#a7c0ff,#8fb2ff);
+      color:white;
+      border:none;
+      border-radius:14px;
+      padding:12px 18px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 8px 16px rgba(152,183,255,0.35);
+      transition:transform .06s ease;
+    }
+    .btn:hover{ transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .card{
+      margin:0 24px 24px;
+      padding:18px;
+      border-radius:18px;
+      background:#fbfdff;
+      border:1px solid #eef2ff;
+      text-align:center;
+    }
+    .card h3{ margin:10px 0 6px; font-size:18px; color:#4a4f68; }
+
+    /* zone fiole */
+    .bottle-area{
+      display:flex;
+      gap:20px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      padding:12px 8px 0;
+    }
+
+    .fiole-wrap{
+      position:relative;
+      width:220px;
+      height:260px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin:6px auto;
+    }
+
+    /* glow behind bottle that changes color */
+    .bottle-glow{
+      position:absolute;
+      inset:0;
+      border-radius:28px;
+      filter: blur(18px);
+      opacity:0;
+      transition:opacity .45s ease, background-color .45s ease, transform .45s ease;
+      transform: scale(.9);
+      pointer-events:none;
+    }
+
+    .fiole {
+      width:160px;
+      height:auto;
+      cursor:pointer;
+      transition: transform .45s cubic-bezier(.2,.9,.3,1), filter .35s ease;
+      will-change:transform;
+      z-index:2;
+      user-select:none;
+      -webkit-user-drag:none;
+    }
+    .fiole.open {
+      transform: rotate(12deg) scale(1.18);
+      filter: drop-shadow(0 18px 30px rgba(0,0,0,0.12));
+    }
+
+    /* small sparkle animation */
+    .sparkle {
+      position:absolute;
+      width:10px; height:10px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.9);
+      top:18%; left:70%;
+      opacity:0; transform:scale(.6);
+      animation: sparkle 1s ease forwards;
+      z-index:3;
+      pointer-events:none;
+    }
+    @keyframes sparkle {
+      0%{ opacity:0; transform:scale(.6) translateY(0); }
+      30%{ opacity:1; transform:scale(1.1) translateY(-6px); }
+      100%{ opacity:0; transform:scale(.6) translateY(-18px); }
+    }
+
+    .verse{
+      margin-top:14px;
+      padding:16px;
+      border-radius:16px;
+      background:#ffffff;
+      border:1px dashed #dfe6ff;
+      display:grid;
+      gap:10px;
+      text-align:left;
+    }
+    .arabic{
+      font-family:'Amiri', serif;
+      font-size:22px;
+      line-height:1.6;
+      direction:rtl;
+      text-align:right;
+      color:#1f2a44;
+    }
+    .ref{ font-size:13px; color:#7a7f95; }
+    .summary{ font-size:15px; color:#2b2d42; }
+
+    .footer{
+      padding:14px 24px 24px;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    /* mood color classes for glow and verse background */
+    .mood-heureux { --mood:#FFD966; }
+    .mood-triste { --mood:#6FA8DC; }
+    .mood-stresse { --mood:#C27BA0; }
+    .mood-anxieux { --mood:#9FC5E8; }
+    .mood-motive { --mood:#93C47D; }
+    .mood-perdu { --mood:#B4A7D6; }
+    .mood-reconnaissant { --mood:#F9CB9C; }
+    .mood-colere { --mood:#F28B82; }
+    .mood-fatigue { --mood:#B7B7FF; }
+    .mood-humble { --mood:#DDEBF7; }
+
+    /* apply mood color to glow and verse border */
+    .bottle-glow.active { opacity:1; transform:scale(1); }
+    .verse.mood { border-color: rgba(0,0,0,0.06); }
+
+    /* responsive */
+    @media (max-width:720px){
+      .fiole-wrap{ width:180px; height:220px; }
+      .fiole{ width:140px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" role="main" aria-label="Application versets selon humeur">
+    <header>
+      <h1>Verset selon ton humeur car [En effet, Nous avons rendu le Coran facile pour la médiation . Y a-t-il quelqu'un pour réfléchir?
+ 54:17] </h1>
+      <p>Choisis une humeur ou écris la tienne, puis clique sur la fiole pour révéler un verset</p>
+    </header>
+
+    <section class="controls" aria-label="Contrôles">
+      <select id="moodSelect" aria-label="Sélection d'humeur">
+        <option value="">— Sélectionne une humeur —</option>
+        <option value="heureux">Heureux(se)</option>
+        <option value="triste">Triste</option>
+        <option value="stresse">Stressé(e)</option>
+        <option value="anxieux">Anxieux(se)</option>
+        <option value="motive">Motivé(e)</option>
+        <option value="perdu">Perdu(e)</option>
+        <option value="reconnaissant">Reconnaissant(e)</option>
+        <option value="colere">En colère</option>
+        <option value="fatigue">Fatigué(e)</option>
+        <option value="humble">Humble</option>
+      </select>
+
+      <input id="moodInput" class="input" type="text" placeholder="Ou écris ton humeur…" />
+      <button id="showBtn" class="btn">Afficher un verset</button>
+    </section>
+
+    <section class="card" aria-live="polite">
+      <h3 id="moodTitle">Choisis une humeur pour recevoir un verset • بسم الله</h3>
+
+      <div class="bottle-area" aria-hidden="false">
+        <div class="fiole-wrap" role="button" aria-label="Fiole magique" tabindex="0">
+          <div id="bottleGlow" class="bottle-glow" aria-hidden="true"></div>
+
+          <!-- Image de la fiole (remplace par ton image Minecraft-style) -->
+          <img id="bottleImg" class="fiole" src="FIOLE.jpg" alt="Fiole magique" draggable="false" />
+
+          <!-- sparkle placeholder -->
+          <div id="sparkle" class="sparkle" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div id="verseBox" class="verse" hidden>
+        <div class="ref" id="ref">Sourate — Verset</div>
+        <div class="arabic" id="arabic">—</div>
+        <div class="summary" id="summary">—</div>
+      </div>
+    </section>
+
+    <div class="footer">
+      Qu'Allah vous bénisse et vous accorde la paix!
+    </div>
+  </main>
+ <script>
+
+    /* ---------------------------
+       Verset data structure
+       - add or modify versets here
+       --------------------------- */
+       const VERSETS = {
+      "heureux": [
+        {ref:"Sourate 55:13", arabic:"فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ", summary:"Lequel donc des bienfaits de votre Seigneur nierez-vous ?"},
+        {ref:"Sourate 16:18", arabic:"وَإِن تَعُدُّوا۟ نِعْمَةَ ٱللَّهِ لَا تُحْصُوهَآ ۗ إِنَّ ٱللَّهَ لَغَفُورٌۭ رَّحِيمٌۭ",summary:"Et si vous comptiez les bienfaits d’Allah, vous ne sauriez les dénombrer. Allah est certes Pardonneur et Miséricordieux."},
+        {ref:"Sourate 14:7", arabic:"وَإِذْ تَأَذَّنَ رَبُّكُمْ لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ ۖ وَلَئِن كَفَرْتُمْ إِنَّ عَذَابِى لَشَدِيدٌۭ", summary:"Et lorsque votre Seigneur proclama : « Si vous êtes reconnaissants, très certainement J’augmenterai pour vous. Mais si vous êtes ingrats, Mon châtiment sera terrible. »"},
+        {ref:"Sourate 2:152", arabic:"فَاذْكُرُونِي أَذْكُرْكُمْ", summary:"Souvenez-vous de Moi, Je me souviendrai de vous. Remerciez-Moi et ne soyez pas ingrats envers Moi."},
+        {ref:"Sourate 110:3", arabic:"فَسَيَكْفِيكَهُمُ اللَّهُ", summary:"Allah te suffira contre eux."},
+        {ref:"Sourate 16:114", arabic:"فَكُلُوا مِمَّا رَزَقَكُمُ اللَّهُ حَلَالًا طَيِّبًا", summary:"Mangez donc de ce qu’Allah vous a attribué de licite et de bon."},
+        {ref:"Sourate 28:77", arabic:"وَابْتَغِ فِيمَا آتَاكَ اللَّهُ الدَّارَ الْآخِرَةَ", summary:"Et recherche à travers ce qu’Allah t’a donné la demeure dernière, et n’oublie pas ta part en cette vie."},
+        {ref:"Sourate 92:5-7", arabic:"فَأَمَّا مَن أَعْطَىٰ وَاتَّقَىٰ • وَصَدَّقَ بِالْحُسْنَىٰ • فَسَنُيَسِّرُهُ لِلْيُسْرَىٰ", summary:"Quant à celui qui donne et craint [Allah], et déclare véridique la meilleure récompense, Nous lui faciliterons la voie à la facilité."},
+        {ref:"Sourate 54:54",arabic:"إِنَّ الْمُتَّقِينَ فِي جَنَّاتٍ وَنَهَرٍ", summary:"Les pieux seront dans des Jardins et des ruisseaux."}
+      ],
+      "triste": [
+        {ref:"Sourate 94:5-6", arabic:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا • إِنَّ مَعَ الْعُسْرِ يُسْرًا", summary:"Certes, à côté de la difficulté est une facilité. Certes, à côté de la difficulté est une facilité."},
+        {ref:"Sourate 2:286", arabic:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", summary:"Allah n’impose à aucune âme une charge supérieure à sa capacité."},
+        {ref:"Sourate 94:7-8", arabic:"فَإِذَا فَرَغْتَ فَانصَبْ", summary:"Quand tu te libères, alors lève-toi [à l’adoration]. Et vers ton Seigneur aspire."},
+        {ref:"Sourate 95:4", arabic:"لَقَدْ خَلَقْنَا الْإِنسَانَ فِي أَحْسَنِ تَقْوِيمٍ", summary:"Nous avons certes créé l’homme dans la forme la plus parfaite."},
+        {ref:"Sourate 3:139", arabic:"فَلَا تَهِنُوا وَلَا تَحْزَنُوا", summary:"Ne faiblissez pas et ne vous affligez pas alors que vous êtes les supérieurs si vous êtes croyants."},
+        {ref:"Sourate 39:53", arabic:"قُلْ يَا عِبَادِيَ الَّذِينَ أَسْرَفُوا عَلَىٰ أَنفُسِهِمْ لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ", summary:"Dis : « Ô Mes serviteurs qui avez commis des excès à votre propre détriment, ne désespérez pas de la miséricorde d’Allah. »"},
+        {ref:"Sourate 41:30", arabic:"إِنَّ الَّذِينَ قَالُوا رَبُّنَا اللَّهُ ثُمَّ اسْتَقَامُوا تَتَنَزَّلُ عَلَيْهِمُ الْمَلَائِكَةُ", summary:"Ceux qui disent : « Notre Seigneur est Allah », puis se tiennent sur le droit chemin, les Anges descendent sur eux."},
+        {ref:"Sourate 2:286", arabic:"رَبَّنَا لَا تُؤَاخِذْنَا إِن نَّسِينَا أَوْ أَخْطَأْنَا", summary:"Notre Seigneur ! Ne nous châtie pas s’il nous arrive d’oublier ou de commettre une erreur."},
+        {ref:"Sourate 3:172", arabic:"وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا", summary:"Et quiconque craint Allah, Il lui donnera une issue."},
+        {ref:"Sourate 65:2-3", arabic:"وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مِنْ أَمْرِهِ يُسْرًا • وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ", summary:"Et quiconque craint Allah, Il lui facilite les affaires et lui accorde une subsistance d’où il ne s’attend pas."},
+        {ref:"Sourate 16:97", arabic:"وَمَنْ عَمِلَ صَالِحًا مِنْ ذَكَرٍ أَوْ أُنْثَىٰ وَهُوَ مُؤْمِنٌ فَلَنُحْيِيَنَّهُ حَيَاةً طَيِّبَةً", summary:"Quiconque, mâle ou femelle, fait une bonne œuvre tout en étant croyant, Nous le ferons vivre d’une vie bonne."},
+        {ref:"Sourate 93:3-4", arabic:"وَلَلْآخِرَةُ خَيْرٌ لَّكَ مِنَ الْأُولَىٰ", summary:"La vie dernière t’est certes meilleure que la première."},
+        {ref:"Sourate 90:4", arabic:"لَقَدْ خَلَقْنَا الْإِنسَانَ فِي كَبَدٍ", summary:"Nous avons certes créé l’homme pour une vie de lutte."},
+        {ref:"sourate 76:2", arabic:"إِنَّا خَلَقْنَا الْإِنْسَانَ مِن نُّطْفَةٍ أَمْشَاجٍ نَّبْتَلِيهِ فَجَعَلْنَاهُ سَمِيعًا بَصِيرًا", summary:"Nous avons certes créé l’homme d’une goutte mêlée pour le mettre à l’épreuve; Nous l’avons fait entendant et voyant."},
+        {ref:"Sourate 89:27-30", arabic:"يَا أَيَّتُهَا النَّفْسُ الْمُطْمَئِنَّةُ • ارْجِعِي إِلَى رَبِّكِ رَاضِيَةً مَرْضِيَّةً • فَادْخُلِي فِي عِبَادِي • وَادْخُلِي جَنَّتِي", summary:"Ô toi, âme apaisée ! Retourne vers ton Seigneur satisfaite et agréée. Entre donc parmi Mes serviteurs. Et entre dans Mon Paradis."},
+        {ref:"Sourate 71:10", arabic:"فَقُلْتُ اسْتَغْفِرُوا رَبَّكُمْ إِنَّهُ كَانَ غَفَّارًا", summary:"J’ai donc dit : « Demandez pardon à votre Seigneur, car Il est Grand Pardonneur. »"},
+        {ref:"Sourate 64:3" , arabic:"خَلَقَ السَّمَاوَاتِ وَالْأَرْضَ بِالْحَقِّ وَصَوَّرَكُمْ فَأَحْسَنَ صُوَرَكُمْ ۖ وَإِلَيْهِ الْمَصِيرُ",summary: "Il a créé les cieux et la terre en toute vérité, et Il vous a façonnés, et a fait belle votre forme; et vers Lui est la destination."},
+        {ref:"Sourate 64:11", arabic:"مَا أَصَابَ مِن مُّصِيبَةٍ إِلَّا بِإِذْنِ اللَّهِ ۗ وَمَن يُؤْمِن بِاللَّهِ يَهْدِ قَلْبَهُ ۚ وَاللَّهُ بِكُلِّ شَيْءٍ عَلِيمٌ" ,summary:"Nul malheur n’atteint [l’homme] sauf avec la permission d’Allah. Et quiconque croit en Allah, Il guide son cœur. Et Allah est Omniscient."},
+        {ref:"Sourate 50:32 ",arabic:"هَٰذَا مَا تُوعَدُونَ لِكُلِّ أَوَّابٍ حَفِيظٍ",summary:"Voilà ce qui vous est promis, pour tout repentant gardien [des ordres d’Allah]."}
+      ],
+      "stresse": [
+        {ref:"Sourate 13:28", arabic:"أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", summary:"N’est-ce point par le rappel d’Allah que se tranquillisent les cœurs ?"},
+        {ref:"Sourate 2:286", arabic:"رَبَّنَا لَا تُؤَاخِذْنَا إِن نَّسِينَا", summary:"Notre Seigneur ! Ne nous châtie pas s’il nous arrive d’oublier."},
+        {ref:"Sourate 94:5-6", arabic:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", summary:"Certes, à côté de la difficulté est une facilité."},
+        {ref:"Sourate 94:7-8", arabic:"فَإِذَا فَرَغْتَ فَانصَبْ", summary:"Quand tu te libères, alors lève-toi [à l’adoration]. Et vers ton Seigneur aspire."},
+        {ref:"Sourate 2:153", arabic:"يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ", summary:"Ô vous qui avez cru ! Cherchez secours dans la patience et la prière."},
+        {ref:"Sourate 3:173", arabic:"حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", summary:"Allah nous suffit; Il est le meilleur garant."},
+        {ref:"Sourate 29:69", arabic:"وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", summary:"Et ceux qui luttent pour Nous, Nous les guiderons certes en Nos sentiers."},
+        {ref:"Sourate 47:7", arabic:"فَإِن تَنصُرُوا اللَّهَ يَنصُرْكُمْ", summary:"Ô vous qui croyez! si vous faites triompher (la cause d') Dieu, Il vous fera triompher et raffermira vos pas."},
+        {ref:"Sourate 3:200", arabic:"فَاصْبِرُوا إِنَّ اللَّهَ مَعَ الصَّابِرِينَ", summary:"Soyez patients; Allah est certes avec les patients."},
+        {ref:"Sourate 94:5-6", arabic:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا • إِنَّ مَعَ الْعُسْرِ يُسْرًا", summary:"Certes, à côté de la difficulté est une facilité. Certes, à côté de la difficulté est une facilité."},
+        {ref:"Sourate 2:286", arabic:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", summary:"Allah n’impose à aucune âme une charge supérieure à sa capacité."},
+        {ref: "Sourate 68:48", arabic: "فَاصْبِرْ لِحُكْمِ رَبِّكَ وَلَا تَكُن كَصَاحِبِ الْحُوتِ إِذْ نَادَىٰ وَهُوَ مَكْظُومٌ", summary: "Endure patiemment le jugement de ton Seigneur et ne sois pas comme l’homme au poisson, quand il appela et était accablé."},
+        {ref: "Sourate 64:13",arabic:"اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ ۚ وَعَلَى اللَّهِ فَلْيَتَوَكَّلِ الْمُؤْمِنُونَ", summary: "Allah, pas de divinité à part Lui ! Et c’est en Allah que les croyants doivent mettre leur confiance."}
+      ],
+      "anxieux": [
+        {ref:"Sourate 2:286", arabic:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", summary:"Allah n’impose à aucune âme une charge supérieure à sa capacité."},
+        {ref:"Sourate 65:3", arabic:"وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ", summary:"Et Il lui accordera une subsistance d’où il ne s’attend pas."},
+        {ref:"Sourate 3:173", arabic:"حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", summary:"Allah nous suffit; Il est le meilleur garant."},
+        {ref:"Sourate 29:69", arabic:"وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", summary:"Ceux qui luttent pour Nous, Nous les guiderons certes en Nos sentiers."},
+        {ref:"Sourate 3:200", arabic:"فَاصْبِرُوا إِنَّ اللَّهَ مَعَ الصَّابِرِينَ", summary:"Soyez patients; Allah est certes avec les patients."},
+        {ref:"Sourate 13:28", arabic:"أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", summary:"N’est-ce point par le rappel d’Allah que se tranquillisent les cœurs ?"},
+        {ref:"Sourate 2:286", arabic:"رَبَّنَا لَا تُؤَاخِذْنَا إِن نَّسِينَا", summary:"Notre Seigneur ! Ne nous châtie pas s’il nous arrive d’oublier."},
+        {ref:"Sourate 94:5-6", arabic:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", summary:"Certes, à côté de la difficulté est une facilité."},
+        {ref: "Sourate 68:34", arabic: "إِنَّ لِلْمُتَّقِينَ عِندَ رَبِّهِمْ جَنَّاتِ النَّعِيمِ", summary: "Pour les pieux, auprès de leur Seigneur, il y a des Jardins de délices."},
+        {ref: "Sourate 67:2 ", arabic: "الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا", summary: "Celui qui a créé la mort et la vie afin de vous éprouver pour savoir qui de vous est le meilleur en œuvres."},
+        {ref: "Sourate 64:18",arabic:"عَالِمُ الْغَيْبِ وَالشَّهَادَةِ الْعَزِيزُ الْحَكِيمُ", summary: "Le Connaisseur de l’invisible et du visible, le Tout-Puissant, le Sage."},
+        {ref: "Sourate 61:13",arabic:"وَأُخْرَىٰ تُحِبُّونَهَا ۖ نَصْرٌ مِّنَ اللَّهِ وَفَتْحٌ قَرِيبٌ ۗ وَبَشِّرِ الْمُؤْمِنِينَ",summary:"Et une autre que vous aimez: un secours d’Allah et une victoire prochaine. Et annonce la bonne nouvelle aux croyants."},
+        {ref:"Sourate 50:16",arabic:"وَلَقَدْ خَلَقْنَا الْإِنسَانَ وَنَعْلَمُ مَا تُوَسْوِسُ بِهِ نَفْسُهُ ۖ وَنَحْنُ أَقْرَبُ إِلَيْهِ مِنْ حَبْلِ الْوَرِيدِ", summary:"Nous avons certes créé l’homme et Nous savons ce que son âme lui suggère; et Nous sommes plus près de lui que sa veine jugulaire."},
+        {ref:"Sourate 48:4",arabic:"هُوَ الَّذِي أَنزَلَ السَّكِينَةَ فِي قُلُوبِ الْمُؤْمِنِينَ...", summary:"C’est Lui qui a fait descendre la quiétude dans les cœurs des croyants afin qu’ils augmentent en foi avec leur foi. À Allah appartiennent les armées des cieux et de la terre. Et Allah est Omniscient, Sage."}
+      ],
+      "motive": [
+        {ref:"Sourate 29:69", arabic:"وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", summary:"Ceux qui luttent pour Nous, Nous les guiderons certes en Nos sentiers."},
+        {ref:"Sourate 0", arabic:"فَاصْبِرُوا إِنَّ اللَّهَ مَعَ الصَّابِرِينَ", summary:"Soyez patients; Allah est certes avec les patients."},
+        {ref:"Sourate 53:39", arabic:"وَأَنْ لَيْسَ لِلْإِنْسَانِ إِلَّا مَا سَعَىٰ", summary:"Et qu’il n’appartient à l’homme que ce qu’il s’efforce d’obtenir."},
+        {ref:"Sourate 94:5-6", arabic:"فَإِنَّ مَعَ الْعُسْرِ يُسْرًا • إِنَّ مَعَ الْعُسْرِ يُسْرًا", summary:"Certes, à côté de la difficulté est une facilité. Certes, à côté de la difficulté est une facilité."},
+        {ref:"Sourate 2:286", arabic:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", summary:"Allah n’impose à aucune âme une charge supérieure à sa capacité."},
+        {ref:"Sourate 3:173", arabic:"حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", summary:"Allah nous suffit; Il est le meilleur garant."},
+        {ref:"Sourate 29:69", arabic:"وَالَّذِينَ جَاهَدُوا فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا", summary:"Ceux qui luttent pour Nous, Nous les guiderons certes en Nos sentiers."},
+        {ref:"Sourate 47:7", arabic:"فَإِن تَنصُرُوا اللَّهَ يَنصُرْكُمْ", summary:"Si vous secourez Allah, Il vous secourra et raffermira vos pas."},
+        {ref: "Sourate 92:4 ", arabic: "وَفَجْرٍ وَلَيَالٍ عَشْرٍ", summary: "Par l’aube et par les dix nuits."},
+        {ref: "Sourate  91:9", arabic: "وَالْأَرْضِ وَمَا طَحَاهَا", summary: "Par la terre et Celui qui l’a étendue."},
+        {ref:"Sourate 73:6", arabic:"إِنَّ نَاشِئَةَ اللَّيْلِ هِيَ أَشَدُّ وَطْئًا وَأَقْوَمُ قِيلًا", summary:"La prière de la nuit est plus efficace et plus apte à être comprise."},
+        {ref:"Sourate 68:3",arabic:"وَإِنَّ لَكَ لَأَجْرًا غَيْرَ مَمْنُونٍ" , summary :"Et pour toi certes il y aura une récompense ininterrompue."},
+        {ref: "Sourate 67:12", arabic:"إِنَّ الَّذِينَ يَخْشَوْنَ رَبَّهُم بِالْغَيْبِ لَهُم مَّغْفِرَةٌ وَأَجْرٌ كَبِيرٌ" , summary: "Ceux qui craignent leur Seigneur bien qu’ils ne Le voient pas auront pardon et une grande récompense."},
+        {ref: "Sourate 61:12",arabic:"يَغْفِرْ لَكُمْ ذُنُوبَكُمْ وَيُدْخِلْكُمْ جَنَّاتٍ...", summary: "Il vous pardonnera vos péchés et vous fera entrer aux Jardins où coulent des rivières, et des demeures agréables dans les Jardins d’Éden. Voilà la grande réussite."},
+        {ref: "Sourate 59:19",arabic:"لَا يَسْتَوِي أَصْحَابُ النَّارِ وَأَصْحَابُ الْجَنَّةِ ۚ أَصْحَابُ الْجَنَّةِ هُمُ الْفَائِزُونَ", summary: "Les gens de l’Enfer ne sont pas égaux aux gens du Paradis. Les gens du Paradis sont les gagnants."},
+        {ref:"Sourate 53:39",arabic:"وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰ", summary:"Il n’appartient à l’homme que ce qu’il s’efforce d’obtenir."},
+        {ref:"Sourate 48:1",arabic:"إِنَّا فَتَحْنَا لَكَ فَتْحًا مُّبِينًا",summary:"En vérité, Nous t’avons accordé une victoire éclatante."}
+      ],
+      "perdu": [
+        {ref:"Sourate 1:6", arabic:"اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ", summary:"Guide-nous dans le droit chemin."},
+        {ref:"Sourate 2:2", arabic:"ذَٰلِكَ الْكِتَابُ لَا رَيْبَ فِيهِ", summary:"C’est le Livre au sujet duquel il n’y a aucun doute, c’est un guide pour les pieux."},
+        {ref:"Sourate 6:162", arabic:"قُلْ إِنَّ صَلَاتِي وَنُسُكِي", summary:"Dis : « Certes, ma prière, mon sacrifice, ma vie et ma mort appartiennent à Allah, le Seigneur des mondes. »"},
+        {ref:"Sourate 39:9", arabic:"أَمَّنْ هُوَ قَانِتٌ آنَاءَ اللَّيْلِ", summary:"Est-ce celui qui est dévot pendant les heures de la nuit, prosterné et debout, craignant l’au-delà et espérant la miséricorde de son Seigneur…?"},
+        {ref:"Sourate 2:286", arabic:"لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", summary:"Allah n’impose à aucune âme une charge supérieure à sa capacité."},
+        {ref:"Sourate 3:173", arabic:"حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ", summary:"Allah nous suffit; Il est le meilleur garant."},
+        {ref:"Sourate 85:14-15", arabic:"وَسَيَجْزِيهِمْ بِمَا صَبَرُوا جَنَّاتٍ وَحَرِيرًا", summary:"Et Il les récompensera pour leur patience par des Jardins et des soieries."},
+        {ref:"Sourate 84:25", arabic:"فَأَمَّا مَن أَعْطَىٰ وَاتَّقَىٰ • وَصَدَّقَ بِالْحُسْنَىٰ", summary:"Quant à celui qui donne et craint [Allah], et déclare véridique la meilleure récompense…"},
+        {ref: "Sourate 79:40-41", arabic:"فَأَمَّا الْإِنسَانُ إِذَا مَا ابْتَلَاهُ رَبُّهُ فَأَكْرَمَهُ وَنَعَّمَهُ • ثُمَّ يُنَكِّرُ وَيَسْتَكْبِرُ • يَقُولُ رَبِّ أَكْرَمَنِ", summary:"(Texte cité)"},
+        {ref:"Sourate 65:3", arabic: "وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ ۚ وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ ۚ إِنَّ اللَّهَ بَالِغُ أَمْرِهِ ۚ قَدْ جَعَلَ اللَّهُ لِكُلِّ شَيْءٍ قَدَرًا﴾", summary: "Et Il lui accordera une subsistance d’où il ne s’attend pas. Quiconque place sa confiance en Allah, Il lui suffit. Allah atteint Son but. Allah a assigné une mesure à toute chose."}
+      ],
+      "reconnaissant": [
+        {ref:"Sourate 14:7", arabic:"لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ", summary:"Si vous êtes reconnaissants, très certainement J’augmenterai pour vous."},
+        {ref:"Sourate 2:152", arabic:"فَاذْكُرُونِي أَذْكُرْكُمْ", summary:"Souvenez-vous de Moi, Je me souviendrai de vous."},
+        {ref:"Sourate 16:18", arabic:"وَإِن تَعُدُّوا نِعْمَةَ اللَّهِ لَا تُحْصُوهَا", summary:"Et si vous comptiez les bienfaits d’Allah, vous ne sauriez les dénombrer."},
+        {ref:"Sourate 110:3", arabic:"فَسَيَكْفِيكَهُمُ اللَّهُ", summary:"Allah te suffira contre eux."},
+        {ref:"Sourate 93:11", arabic:"وَأَمَّا بِنِعْمَةِ رَبِّكَ فَحَدِّثْ", summary:"Et quant au bienfait de ton Seigneur, proclame-le."},
+        {ref:"Sourate 87:10", arabic:"وَذَكِّرْ فَإِنَّ الذِّكْرَىٰ تَنفَعُ الْمُؤْمِنِينَ", summary:"Rappelle, car le rappel profite aux croyants."},
+        {ref:"Sourate 87:14-15", arabic:"سَيَجْزِيهِمْ رَبُّهُمْ وَيَزِيدُهُمْ مِن فَضْلِهِ", summary:"(Sens) Leur Seigneur les récompensera et les augmentera de Sa grâce."},
+        {ref:"Sourate 80:24", arabic:"وَإِذَا قِيلَ لَهُ اتَّقِ اللَّهَ أَخَذَتْهُ الْعِزَّةُ بِالْإِثْمِ", summary:"Qu’il considère donc sa nourriture. (NB: la citation arabique ne correspond pas à ce verset)"},
+        {ref:"Sourate 76:25-26", arabic:"وَاذْكُرِ اسْمَ رَبِّكَ وَتَبَتَّلْ إِلَيْهِ تَبْتِيلًا • رَبُّ الْمَشْرِقِ وَالْمَغْرِبِ...", summary:"Invoque le nom de ton Seigneur et consacre-toi à Lui avec dévotion… Prends-Le pour protecteur."},
+        {ref:"Sourate 74:3" , arabic:"وَرَبَّكَ فَكَبِّرْ", summary:"Proclame la grandeur de ton Seigneur."},
+        {ref:"Sourate 73:8", arabic:"وَرَبَّكَ فَكَبِّرْ", summary:"Proclame la grandeur de ton Seigneur."},
+        {ref:"Sourate 72:20", arabic:"فَسُبْحَانَ اللَّهِ حِينَ تَمْسُونَ وَحِينَ تُصْبِحُونَ", summary:"Glorifiez Allah le soir et le matin."},
+        {ref:"Sourate 71:3", arabic:"أَنِ اعْبُدُوا اللَّهَ وَاتَّقُوهُ وَأَطِيعُونِ", summary:"Adorez Allah, craignez-Le et obéissez-moi."},
+        {ref:"Sourate 71:19",arabic: "وَاللَّهُ جَعَلَ لَكُمُ الْأَرْضَ بِسَاطًا", summary:"Et Allah a fait pour vous de la terre une étendue."},
+        {ref:"Sourate 69:52",arabic: "فَسَبِّحْ بِاسْمِ رَبِّكَ الْعَظِيمِ", summary:"Glorifie donc le nom de ton Seigneur, le Très Grand."},
+        {ref:"Sourate 67:1" , arabic: "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ", summary:"Béni soit Celui qui détient la royauté, et Il est Omnipotent."},
+        {ref: "Sourate 67:15", arabic: "هُوَ الَّذِي جَعَلَ لَكُمُ الْأَرْضَ ذَلُولًا فَامْشُوا فِي مَنَاكِبِهَا وَكُلُوا مِن رِّزْقِهِ ۖ وَإِلَيْهِ النُّشُورُ", summary:"C’est Lui qui vous a soumis la terre: parcourez donc ses étendues et mangez de sa subsistance. Vers Lui est la résurrection."},
+        {ref: "Sourate 64:1", arabic: "سَبَّحَ لِلَّهِ مَا فِي السَّمَاوَاتِ وَالْأَرْضِ ۖ وَهُوَ الْعَزِيزُ الْحَكِيمُ", summary:"Ce qui est dans les cieux et la terre glorifie Allah; Il est le Tout-Puissant, le Sage."},
+        {ref: "Sourate 64:16", arabic: "فَاتَّقُوا اللَّهَ حَقَّ تُقَاتِهِ وَلَا تَمُوتُنَّ إِلَّا وَأَنْتُمْ مُسْلِمُونَ", summary:"Craignez Allah comme Il doit être craint, et ne mourez qu’en pleine soumission."},
+        {ref: "Sourate 62:1",arabic: "سَبَّحَ لِلَّهِ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۖ وَهُوَ الْعَزِيزُ الْحَكِيمُ", summary:"Ce qui est dans les cieux et la terre glorifie Allah; Il est le Tout-Puissant, le Sage."},
+        {ref: "Sourate 59:1",arabic:"سَبَّحَ لِلَّهِ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۖ وَهُوَ الْعَزِيزُ الْحَكِيمُ", summary:"Ce qui est dans les cieux et la terre glorifie Allah; Il est le Tout-Puissant, le Sage."},
+        {ref:"Sourate 57:19",arabic:"وَلَا تَكُونُوا كَالَّذِينَ نَسُوا اللَّهَ فَأَنسَاهُمْ أَنفُسَهُمْ ۚ أُولَٰئِكَ هُمُ الْفَاسِقُونَ", summary:"Ne soyez pas comme ceux qui ont oublié Allah, et [Il] les a fait s’oublier eux-mêmes. Ceux-là sont les pervers."},
+        {ref:"Sourate 59:24",arabic:"هُوَ اللَّهُ الْخَالِقُ الْبَارِئُ الْمُصَوِّرُ...",summary:"C’est Lui, Allah, le Créateur, le Producteur, le Formateur. À Lui les plus beaux noms. Tout ce qui est dans les cieux et la terre Le glorifie. Et Il est le Puissant, le Sage."},
+        {ref:"Sourate 56:96 ",arabic:"فَسَبِّحْ بِاسْمِ رَبِّكَ الْعَظِيمِ", summary:"Glorifie donc le nom de ton Seigneur, le Très Grand."},
+        {ref:"Sourate 55:13",arabic:"فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ", summary:"Lequel donc des bienfaits de votre Seigneur nierez-vous ?"},
+        {ref:"Sourate 55:29",arabic:"يَسْأَلُهُ مَن فِي السَّمَاوَاتِ وَالْأَرْضِ ۚ كُلَّ يَوْمٍ هُوَ فِي شَأْنٍ", summary:"Ceux qui sont dans les cieux et la terre implorent de Lui. Chaque jour Il accomplit une œuvre."},
+        {ref:"Sourate 55:78",arabic:"تَبَارَكَ اسْمُ رَبِّكَ ذِي الْجَلَالِ وَالْإِكْرَامِ", summary:"Béni soit le nom de ton Seigneur, plein de majesté et de munificence."},
+        {ref:"Sourate 53:63",arabic:"فَاسْجُدُوا لِلَّهِ وَاعْبُدُوا ۩", summary:"Prosternez-vous devant Allah et adorez-Le."},
+        {ref:"Sourate 52:49",arabic:"وَمِنَ اللَّيْلِ فَسَبِّحْهُ وَإِدْبَارَ النُّجُومِ", summary:"Et durant la nuit, célèbre Sa gloire, et aux départs des étoiles."},
+        {ref:"Sourate 51:56", arabic:"وَمَا خَلَقْتُ الْجِنَّ وَالْإِنسَ إِلَّا لِيَعْبُدُونِ", summary:"Je n’ai créé les djinns et les hommes que pour qu’ils M’adorent."},
+        {ref:"Sourate 50:38",arabic:"وَلَقَدْ خَلَقْنَا السَّمَاوَاتِ وَالْأَرْضَ وَمَا بَيْنَهُمَا فِي سِتَّةِ أَيَّامٍ وَمَا مَسَّنَا مِن لُّغُوبٍ",summary:"Certes Nous avons créé les cieux et la terre et ce qui est entre eux en six jours, et rien ne Nous a touchés de lassitude."}
+      ],
+      "colere": [
+        {ref:"Sourate 3:134", arabic:"وَالْكَاظِمِينَ الْغَيْظَ وَالْعَافِينَ عَنِ النَّاسِ... وَاللَّهُ يُحِبُّ الْمُحْسِنِينَ", summary:"Ceux qui dépensent dans l’aisance et dans l’adversité, qui dominent leur rage et pardonnent aux gens; et Allah aime les bienfaisants."},
+        {ref:"Sourate 41:34", arabic:"وَلَا تَسْتَوِي الْحَسَنَةُ وَلَا السَّيِّئَةُ", summary:"La bonne action et la mauvaise ne sont pas pareilles. Repousse [le mal] par ce qui est meilleur…"},
+        {ref:"Sourate 42:37", arabic:"وَالَّذِينَ يَصْفَحُونَ عَنِ النَّاسِ", summary:"Ceux qui pardonnent aux gens."},
+        {ref:"Sourate 7:199", arabic:"خُذِ الْعَفْوَ وَأْمُرْ بِالْعُرْفِ", summary:"Accepte le pardon, ordonne le bien, et détourne-toi des ignorants."},
+        {ref:"Sourate 42:36-37",arabic:"فَمَا أُوتِيتُم مِّن شَيْءٍ فَمَتَاعُ الْحَيَاةِ الدُّنْيَا... وَالَّذِينَ يَصْفَحُونَ عَنِ النَّاسِ", summary:"Ce qui vous a été donné n’est que jouissance de la vie présente… et ceux qui pardonnent aux gens. Et Allah aime les bienfaisants."},
+        {ref:"Sourate 2:109",arabic:"... فَاعْفُوا وَاصْفَحُوا حَتَّىٰ يَأْتِيَ اللَّهُ بِأَمْرِهِ...", summary:"Pardonnez et excusez jusqu’à ce qu’Allah fasse venir Son ordre. Allah est Omnipotent."},
+        {ref:"SOURATE 64:14",arabic:"... وَإِن تَعْفُوا وَتَصْفَحُوا وَتَغْفِرُوا فَإِنَّ اللَّهُ غَفُورٌ رَّحِيمٌ", summary:"Si vous pardonnez, excusez et faites miséricorde, Allah est Pardonneur, Miséricordieux."}
+      ],
+      "fatigue": [
+        {ref:"Sourate 93:4", arabic:"وَلَلْآخِرَةُ خَيْرٌ لَّكَ مِنَ الْأُولَىٰ", summary:"La vie dernière t’est certes meilleure que la première."},
+        {ref:"Sourate 2:286", arabic:"رَبَّنَا لَا تُحَمِّلْنَا مَا لَا طَاقَةَ لَنَا بِهِ", summary:"Notre Seigneur ! Ne nous impose pas ce pour quoi nous n’avons pas la force."},
+        {ref:"Sourate 16:97", arabic:"وَمَنْ عَمِلَ صَالِحًا مِنْ ذَكَرٍ أَوْ أُنْثَىٰ", summary:"Quiconque, mâle ou femelle, fait une bonne œuvre tout en étant croyant, Nous le ferons vivre d’une vie bonne."},
+        {ref:"Sourate 76:2", arabic:"إِنَّا خَلَقْنَا الْإِنسَانَ مِن نُّطْفَةٍ أَمْشَاجٍ", summary:"Nous avons certes créé l’homme d’une goutte mêlée pour le mettre à l’épreuve."},
+        {ref:"Sourate 89:27-30", arabic:"يَا أَيَّتُهَا النَّفْسُ الْمُطْمَئِنَّةُ ...", summary:"Ô toi, âme apaisée ! Retourne vers ton Seigneur satisfaite et agréée… Entre dans Mon Paradis."},
+        {ref:"Sourate 93:3-4", arabic:"وَلَلْآخِرَةُ خَيْرٌ لَّكَ مِنَ الْأُولَىٰ", summary:"La vie dernière t’est certes meilleure que la première."},
+        {ref:"Sourate 86:4", arabic:"وَإِنَّ عَلَيْكَ لَحَافِظًا", summary:"Il y a certes sur toi un gardien."},
+        {ref:"Sourate 84:6", arabic:"فَسَوْفَ يَأْتِي اللَّهُ بِقَوْمٍ يُحِبُّهُمْ وَيُحِبُّونَهُ", summary:"Allah fera venir un peuple qu’Il aime et qui L’aime. (NB: citation non correspondante au verset)"},
+        {ref:"Sourate 78:31-32", arabic:"إِنَّ لِلْمُتَّقِينَ مَفَازًا • حَدَائِقَ وَأَعْنَابًا", summary:"Pour les pieux, il y aura [un lieu de] succès: des jardins et des vignes."},
+        {ref:"Sourate 76:12", arabic:"كَانُوا قَلِيلًا مِّنَ اللَّيْلِ مَا يَهْجَعُونَ", summary:"Ils dormaient peu la nuit."},
+        {ref:"Sourate 76:22", arabic:"فَسَلَامٌ لَّكُمْ بِمَا صَبَرْتُمْ", summary:"« Paix sur vous, pour ce que vous avez enduré. »"},
+        {ref:"Sourate 73:10", arabic:"فَاصْبِرْ عَلَىٰ مَا يَقُولُونَ", summary:"Endure patiemment ce qu’ils disent."},
+        {ref:"Sourate70:5", arabic:"فَاصْبِرْ صَبْرًا جَمِيلًا", summary: "Endure avec une belle patience."},
+        {ref:"Sourate 39:10", arabic:"فَاصْبِرْ إِنَّ وَعْدَ اللَّهِ حَقٌّ", summary: "Sois patient, car la promesse d’Allah est vérité."},
+        {ref:"Sourate 58:21",arabic:"كَتَبَ اللَّهُ لَأَغْلِبَنَّ أَنَا وَرُسُلِي ۚ إِنَّ اللَّهَ قَوِيٌّ عَزِيزٌ", summary:"Allah a décrété : « Moi et Mes messagers, nous l’emporterons. » Allah est Fort, Puissant."},
+        {ref:"Sourate 56:91",arabic:"فَسَلَامٌ لَّكَ مِنْ أَصْحَابِ الْيَمِينِ", summary:"« Paix à toi », de la part des gens de la droite."},
+        {ref:"Sourate 52:48",arabic:"وَاصْبِرْ لِحُكْمِ رَبِّكَ فَإِنَّكَ بِأَعْيُنِنَا ۖ وَسَبِّحْ بِحَمْدِ رَبِّكَ حِينَ تَقُومُ", summary:"Endure patiemment le jugement de ton Seigneur, car tu es sous Nos yeux. Et célèbre les louanges de ton Seigneur quand tu te lèves."},
+        {ref:"Sourate 50:39",arabic:"فَاصْبِرْ عَلَىٰ مَا يَقُولُونَ وَسَبِّحْ بِحَمْدِ رَبِّكَ قَبْلَ طُلُوعِ الشَّمْسِ وَقَبْلَ الْغُرُوبِ", summary:"Endure patiemment ce qu’ils disent, et célèbre les louanges de ton Seigneur avant le lever du soleil et avant son coucher."}
+      ],
+      "humble": [
+        {ref:"Sourate 25:63", arabic:"وَعِبَادُ الرَّحْمَٰنِ الَّذِينَ يَمْشُونَ عَلَى الْأَرْضِ هَوْنًا", summary:"Les serviteurs du Tout Miséricordieux sont ceux qui marchent humblement sur la terre."},
+        {ref:"Sourate 31:18", arabic:"وَلَا تُصَعِّرْ خَدَّكَ لِلنَّاسِ", summary:"Ne détourne pas ton visage des gens (par orgueil), et ne foule pas la terre avec arrogance."},
+        {ref:"Sourate 7:199", arabic:"خُذِ الْعَفْوَ وَأْمُرْ بِالْعُرْفِ", summary:"Accepte le pardon, ordonne le bien, et détourne-toi des ignorants."},
+        {ref:"Sourate 39:53", arabic:"قُلْ يَا عِبَادِيَ الَّذِينَ أَسْرَفُوا عَلَىٰ أَنفُسِهِمْ", summary:"Dis : « Ô Mes serviteurs qui avez commis des excès à votre propre détriment… »"},
+        {ref:"Sourate 3:134", arabic:"وَالْكَاظِمِينَ الْغَيْظَ", summary:"Ceux qui dominent leur rage."},
+        {ref:"Sourate 42:37", arabic:"وَالَّذِينَ يَصْفَحُونَ عَنِ النَّاسِ", summary:"Ceux qui pardonnent aux gens."},
+        {ref:"Sourate 25:63", arabic:"وَعِبَادُ الرَّحْمَٰنِ الَّذِينَ يَمْشُونَ عَلَى الْأَرْضِ هَوْنًا", summary:"Les serviteurs du Tout Miséricordieux marchent humblement sur la terre."},
+        {ref:"Sourate 31:18", arabic:"وَلَا تُصَعِّرْ خَدَّكَ لِلنَّاسِ", summary:"Ne détourne pas ton visage des gens, et ne marche pas avec arrogance."},
+        {ref:"Sourate 7:199", arabic:"خُذِ الْعَفْوَ وَأْمُرْ بِالْعُرْفِ", summary:"Accepte le pardon, ordonne le bien."},
+        {ref:"Sourate 39:53", arabic:"قُلْ يَا عِبَادِيَ الَّذِينَ أَسْرَفُوا عَلَىٰ أَنفُسِهِمْ", summary:"Dis : « Ô Mes serviteurs… » (appel à l’humilité et au repentir)."},
+        {ref:"Sourate 3:134", arabic:"وَالْكَاظِمِينَ الْغَيْظَ", summary:"Ceux qui dominent leur rage."},
+        {ref:"Sourate 42:37", arabic:"وَالَّذِينَ يَصْفَحُونَ عَنِ النَّاسِ", summary:"Ceux qui pardonnent aux gens."},
+        {ref:"Sourate 25:63", arabic:"وَعِبَادُ الرَّحْمَٰنِ الَّذِينَ يَمْشُونَ عَلَى الْأَرْضِ هَوْنًا", summary:"Les serviteurs du Tout Miséricordieux marchent humblement sur la terre."},
+        {ref:"Sourate 31:18", arabic:"وَلَا تُصَعِّرْ خَدَّكَ لِلنَّاسِ", summary:"Ne détourne pas ton visage des gens, et ne marche pas avec arrogance."},
+        {ref:"Sourate 51:55",arabic:"وَذَكِّرْ فَإِنَّ الذِّكْرَىٰ تَنفَعُ الْمُؤْمِنِينَ", summary:"Rappelle, car le rappel profite aux croyants."}
+              ]
+   };
+    const MOOD_CLASS = {
+      "heureux":"mood-heureux",
+      "triste":"mood-triste",
+      "stresse":"mood-stresse",
+      "anxieux":"mood-anxieux",
+      "motive":"mood-motive",
+      "perdu":"mood-perdu",
+      "reconnaissant":"mood-reconnaissant",
+      "colere":"mood-colere",
+      "fatigue":"mood-fatigue",
+      "humble":"mood-humble"
+    };
+
+    // DOM refs
+    const moodSelect = document.getElementById('moodSelect');
+    const moodInput  = document.getElementById('moodInput');
+    const showBtn    = document.getElementById('showBtn');
+    const moodTitle  = document.getElementById('moodTitle');
+    const verseBox   = document.getElementById('verseBox');
+    const refEl      = document.getElementById('ref');
+    const arabicEl   = document.getElementById('arabic');
+    const summaryEl  = document.getElementById('summary');
+    const bottleImg  = document.getElementById('bottleImg');
+    const bottleGlow = document.getElementById('bottleGlow');
+    const sparkleEl  = document.getElementById('sparkle');
+    const fioleWrap  = document.querySelector('.fiole-wrap');
+
+    // normalize helper
+    function normalize(str){
+      return (str||"").toLowerCase().trim()
+        .replace(/[éèêë]/g,'e').replace(/[àâ]/g,'a').replace(/[îï]/g,'i')
+        .replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/[^a-z0-9\s-]/g,'');
+    }
+
+    // pick mood key from input/select
+    function resolveMood(){
+      const fromSelect = moodSelect.value;
+      const fromInput  = moodInput.value;
+      let mood = normalize(fromInput || fromSelect);
+
+      // normalize common variants
+      if(mood.includes('heureux')) mood = 'heureux';
+      if(mood.includes('trist')) mood = 'triste';
+      if(mood.includes('stress') || mood.includes('stresse')) mood = 'stresse';
+      if(mood.includes('anx')) mood = 'anxieux';
+      if(mood.includes('mot')) mood = 'motive';
+      if(mood.includes('perd')) mood = 'perdu';
+      if(mood.includes('recon')) mood = 'reconnaissant';
+      if(mood.includes('col') || mood.includes('colere')) mood = 'colere';
+      if(mood.includes('fatig')) mood = 'fatigue';
+      if(mood.includes('humble')) mood = 'humble';
+
+      // fallback: if exact key exists, keep; else choose default 'motive'
+      if(!Object.keys(VERSETS).includes(mood)) {
+        // try inclusion match
+        const found = Object.keys(VERSETS).find(k => k.includes(mood) || mood.includes(k));
+        mood = found || 'motive';
+      }
+      return mood;
+    }
+
+    // pick random verse for mood
+    function pickVerse(mood){
+      const list = VERSETS[mood] || VERSETS['motive'];
+      return list[Math.floor(Math.random()*list.length)];
+    }
+
+    // apply mood color to glow and verse
+    function applyMoodVisuals(mood){
+      // remove previous mood classes
+      Object.values(MOOD_CLASS).forEach(c => {
+        bottleGlow.classList.remove(c);
+        verseBox.classList.remove(c);
+      });
+
+      const cls = MOOD_CLASS[mood] || MOOD_CLASS['motive'];
+      bottleGlow.classList.add(cls);
+      verseBox.classList.add(cls);
+
+      // set glow background color from computed CSS variable of mood class
+      // we use a small mapping to actual colors for better control
+      const colorMap = {
+        "mood-heureux":"#FFD966",
+        "mood-triste":"#6FA8DC",
+        "mood-stresse":"#C27BA0",
+        "mood-anxieux":"#9FC5E8",
+        "mood-motive":"#93C47D",
+        "mood-perdu":"#B4A7D6",
+        "mood-reconnaissant":"#F9CB9C",
+        "mood-colere":"#F28B82",
+        "mood-fatigue":"#B7B7FF",
+        "mood-humble":"#DDEBF7"
+      };
+      const color = colorMap[cls] || '#93C47D';
+      bottleGlow.style.background = `radial-gradient(circle at 50% 40%, ${color}55 0%, ${color}22 30%, transparent 60%)`;
+      bottleGlow.classList.add('active');
+    }
+
+    // animate bottle + sparkle
+    function animateBottle(){
+      bottleImg.classList.add('open');
+      sparkleEl.style.display = 'block';
+      // restart sparkle animation
+      sparkleEl.style.animation = 'none';
+      void sparkleEl.offsetWidth;
+      sparkleEl.style.animation = '';
+      setTimeout(()=> {
+        bottleImg.classList.remove('open');
+        sparkleEl.style.display = 'none';
+      }, 700);
+    }
+
+    // main showVerse function
+    function showVerse(){
+      const mood = resolveMood();
+      const verse = pickVerse(mood);
+
+      // update title and content
+      moodTitle.innerHTML = `<span style="font-size:20px;margin-right:8px">✨</span>Humeur: ${mood}`;
+      refEl.textContent = verse.ref;
+      arabicEl.textContent = verse.arabic;
+      summaryEl.textContent = verse.summary;
+
+      // visuals
+      applyMoodVisuals(mood);
+      animateBottle();
+
+      // reveal verse box after a short delay (to sync with animation)
+      verseBox.hidden = true;
+      setTimeout(()=> verseBox.hidden = false, 380);
+    }
+
+    // event listeners
+    showBtn.addEventListener('click', showVerse);
+    moodSelect.addEventListener('change', showVerse);
+
+    // allow clicking the bottle itself
+    fioleWrap.addEventListener('click', showVerse);
+    fioleWrap.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showVerse(); } });
+
+    // accessibility: hide glow from assistive tech
+    bottleGlow.setAttribute('aria-hidden','true');
+  </script>
+</body>
+</html>
